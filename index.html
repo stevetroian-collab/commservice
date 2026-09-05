@@ -3,9 +3,10 @@
   Tool costruito da ZeroComplicazioni per CommService (distribuzione carni), a uso dei
   clienti macellai che devono trasmettere ordini periodici.
 
-  v4 — Il tool NON calcola più prezzi/totali: serve solo a trasmettere articolo +
-  quantità (in pezzi/confezioni). L'oggetto PRODOTTI conserva ancora prezzo e unità
-  di listino per comodità interna, ma non sono più mostrati né usati nell'app.
+v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quantità
+  (in pezzi/confezioni). Il prezzo di listino resta visibile in elenco articoli
+  (di riferimento per il cliente), ma non compare mai nel riepilogo ordine né in
+  un calcolo di totale.
 
   Numero WhatsApp: quello di Iuri (+39 335 774 3889), impostato in WHATSAPP_NUMERO.
 
@@ -799,17 +800,22 @@ const tabsEl = document.getElementById("tabs");
 const catsEl = document.getElementById("categories");
 const catNames = Object.keys(PRODOTTI);
 
-// Il tool non calcola più prezzi: ogni riga di PRODOTTI conserva ancora
-// [cod, nome, prezzo, unitaListino] per comodità interna, ma prezzo/unità
-// non sono più mostrati né usati — si ordina sempre in pezzi/confezioni.
-function buildItemRow(cod, nome){
+// Il prezzo di listino resta visibile in elenco (di riferimento per il cliente),
+// ma non entra mai nel riepilogo ordine né in un calcolo di totale: l'ordine
+// trasmette solo articolo + quantità (in pezzi/confezioni).
+function buildItemRow(cod, nome, prezzo, unit){
   const row = document.createElement("div");
   row.className = "item";
+
+  const priceTxt = (typeof prezzo === "number")
+    ? `€ ${prezzo.toFixed(2).replace(".", ",")} / ${unit}`
+    : "";
 
   row.innerHTML = `
     <div class="item-info">
       <div class="item-cod">${cod}</div>
       <div class="item-name">${nome}</div>
+      ${priceTxt ? `<div class="item-price">${priceTxt}</div>` : ""}
     </div>
     <div class="item-controls">
       <input type="number" class="qty-input" min="1" step="1" value="1">
