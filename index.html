@@ -1,0 +1,1318 @@
+<!--
+  COMMSERVICE — ORDINI WHATSAPP PER MACELLAI
+  Tool costruito da ZeroComplicazioni per CommService (distribuzione carni), a uso dei
+  clienti macellai che devono trasmettere ordini periodici.
+
+  v4 — Il tool NON calcola più prezzi/totali: serve solo a trasmettere articolo +
+  quantità (in pezzi/confezioni). L'oggetto PRODOTTI conserva ancora prezzo e unità
+  di listino per comodità interna, ma non sono più mostrati né usati nell'app.
+
+  Numero WhatsApp: quello di Iuri (+39 335 774 3889), impostato in WHATSAPP_NUMERO.
+
+  Archivio ordini (tab "Archivio ordini"): salvato in localStorage sul dispositivo
+  di ogni macellaio, per suo comodo riordino — resta locale e privato a lui. Dalla
+  funzione "Riordina" le quantità restano modificabili prima di reinviare.
+
+  Backend condiviso: ogni ordine inviato viene anche salvato in un foglio Google
+  tramite un endpoint Apps Script (APPS_SCRIPT_URL) — vedi doPost/doGet nel foglio
+  "CommService Backend". Se il salvataggio sul backend fallisce (rete assente,
+  endpoint cambiato) l'ordine parte comunque su WhatsApp, non è bloccante.
+  ATTENZIONE: APPS_SCRIPT_URL punta al foglio di TEST creato in fase di prova —
+  sostituirlo con l'URL del deployment definitivo prima dell'uso reale con i clienti.
+
+  Area CommService (tab "Area CommService"): mostra lo storico consolidato di tutti
+  i clienti, letto dal backend condiviso. Protetta da un PIN a 4 cifre (IURI_PIN) —
+  non è una sicurezza vera (è tutto lato client), ma basta a evitare che un
+  macellaio finisca per sbaglio a vedere gli ordini altrui aprendo la stessa
+  pagina. Cambia il PIN modificando la costante IURI_PIN nello script.
+  Da qui Iuri conferma la presa in carico di ogni ordine, segnala gli articoli
+  eventualmente NON disponibili, e la conferma parte via WhatsApp al cliente.
+-->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommService — Ordini per macellai</title>
+<meta name="description" content="Invia il tuo ordine a CommService direttamente su WhatsApp: scegli gli articoli dal listino, indica le quantità, invia.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --corallo: #F27F6B;
+    --corallo-dark: #D9634F;
+    --antracite: #1E1E1E;
+    --grigio-scuro: #2A2A2A;
+    --crema: #FDF0D4;
+    --bianco: #FFFFFF;
+    --text: #F7F1E3;
+    --text-70: rgba(247,241,227,0.72);
+    --text-40: rgba(247,241,227,0.42);
+    --border: rgba(247,241,227,0.14);
+    --paper-ink: #241C10;
+    --paper-ink-70: rgba(36,28,16,0.68);
+    --paper-ink-40: rgba(36,28,16,0.4);
+    --whatsapp: #25D366;
+    --whatsapp-dark: #1DA851;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
+  html,body{overflow-x:hidden; max-width:100%;}
+  body{
+    background: var(--antracite);
+    color: var(--text);
+    font-family:'Poppins', sans-serif;
+    font-weight:300;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  a{color:inherit;}
+  button{font-family:'Poppins', sans-serif;}
+
+  /* ---------- HEADER ---------- */
+  header{
+    background: var(--grigio-scuro);
+    padding: 26px 20px 22px;
+    text-align:center;
+    border-bottom: 3px solid var(--corallo);
+  }
+  .zc-symbol{
+    width:46px; height:46px;
+    margin:0 auto 10px;
+  }
+  h1{
+    font-weight:600;
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    margin: 0 0 2px;
+    letter-spacing:-0.5px;
+  }
+  h1 .light{font-weight:300;}
+  .tagline{
+    font-weight:500;
+    font-size:0.72rem;
+    letter-spacing:1.6px;
+    text-transform:uppercase;
+    color: var(--corallo);
+  }
+  .iva-note{
+    margin-top:10px;
+    font-size:0.68rem;
+    color: var(--text-40);
+    letter-spacing:0.3px;
+  }
+
+  /* ---------- MAIN TABS (Nuovo ordine / Archivio) ---------- */
+  .main-tabs{
+    max-width:1180px;
+    margin: 18px auto 0;
+    padding: 0 16px;
+    display:flex;
+    gap:8px;
+  }
+  .main-tab{
+    flex:1;
+    padding:12px 10px;
+    border-radius:12px;
+    border:1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-70);
+    font-weight:500;
+    font-size:0.92rem;
+    cursor:pointer;
+    transition: all 0.15s ease;
+  }
+  .main-tab.active{
+    background: var(--corallo);
+    border-color: var(--corallo);
+    color: var(--antracite);
+    font-weight:600;
+  }
+
+  .main-view{display:none;}
+  .main-view.active{display:block;}
+
+  /* ---------- CLIENT INFO ---------- */
+  .client-card{
+    max-width:1180px;
+    margin: 18px auto 0;
+    padding: 0 16px;
+  }
+  .client-box{
+    background: var(--grigio-scuro);
+    border-radius:14px;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+  }
+  .client-box-title{
+    font-weight:600;
+    font-size:0.78rem;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color: var(--corallo);
+    margin-bottom:12px;
+  }
+  .client-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:10px;
+  }
+  @media(min-width:700px){
+    .client-grid{grid-template-columns: 1.2fr 1.4fr 1fr;}
+  }
+  .client-grid label{
+    display:block;
+    font-size:0.68rem;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color: var(--text-40);
+    margin-bottom:5px;
+  }
+  .client-grid input{
+    width:100%;
+    font-family:'Poppins', sans-serif;
+    font-weight:400;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1.5px solid var(--border);
+    background: rgba(247,241,227,0.05);
+    color: var(--text);
+    font-size:0.9rem;
+  }
+  .client-grid input::placeholder{color: var(--text-40);}
+  .client-saved-note{
+    font-size:0.7rem;
+    color: var(--text-40);
+    margin-top:10px;
+    font-style:italic;
+  }
+
+  /* ---------- SEARCH ---------- */
+  .search-wrap{
+    max-width:1180px;
+    margin: 16px auto 0;
+    padding: 0 16px;
+  }
+  .search-input{
+    width:100%;
+    font-family:'Poppins', sans-serif;
+    padding:11px 14px;
+    border-radius:12px;
+    border:1.5px solid var(--border);
+    background: var(--grigio-scuro);
+    color: var(--text);
+    font-size:0.9rem;
+  }
+  .search-input::placeholder{color: var(--text-40);}
+
+  /* ---------- LAYOUT ---------- */
+  .wrap{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px 16px 0;
+    display:grid;
+    grid-template-columns: minmax(0,1fr);
+    gap: 24px;
+  }
+  @media(min-width:900px){
+    .wrap{grid-template-columns: minmax(0,1fr) 350px; align-items:start;}
+  }
+
+  /* ---------- CATEGORY TABS ---------- */
+  .tabs-wrap{position:relative; margin-bottom:18px;}
+  .tabs-wrap.hidden{display:none;}
+  .tabs-wrap::after{
+    content:""; position:absolute; top:0; right:0; bottom:4px; width:36px;
+    background:linear-gradient(to right, transparent, var(--antracite));
+    pointer-events:none;
+  }
+  .tabs{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;}
+  .tab{
+    font-weight:500; font-size:0.85rem;
+    padding:8px 15px; border-radius:999px;
+    background: transparent; border:1.5px solid var(--border);
+    color: var(--text-70); cursor:pointer; white-space:nowrap;
+    transition: all 0.15s ease;
+  }
+  .tab.active{background: var(--corallo); border-color: var(--corallo); color: var(--antracite); font-weight:600;}
+  .tab:hover:not(.active){border-color: var(--corallo); color: var(--corallo);}
+
+  /* ---------- PRODUCT LIST ---------- */
+  .category{display:none;}
+  .category.active{display:block;}
+  .cat-title{font-weight:600; font-size:1.25rem; color: var(--corallo); margin:0 0 14px;}
+
+  .item{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:12px; padding:12px 4px; border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+  }
+  .item-info{flex:1; min-width:160px;}
+  .item-cod{font-family: var(--mono); font-size:0.68rem; color: var(--text-40);}
+  .item-name{font-weight:500; font-size:0.95rem; color: var(--text);}
+  .item-price{font-family: var(--mono); font-weight:600; font-size:0.85rem; color: var(--corallo); margin-top:2px;}
+  .item-controls{
+    display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap;
+  }
+  .unit-toggle{display:flex; border:1.5px solid var(--border); border-radius:8px; overflow:hidden;}
+  .unit-opt{
+    padding:7px 10px; border:none; background:transparent; color: var(--text-70);
+    font-size:0.76rem; font-weight:500; cursor:pointer;
+  }
+  .unit-opt.sel{background: var(--corallo); color: var(--antracite); font-weight:600;}
+  .price-tbc{color: var(--corallo); font-style:italic;}
+  .qty-input{
+    width:70px;
+    font-family: var(--mono);
+    padding:8px 8px;
+    border-radius:8px;
+    border:1.5px solid var(--border);
+    background: rgba(247,241,227,0.05);
+    color: var(--text);
+    font-size:0.88rem;
+    text-align:center;
+  }
+  .qty-unit{font-size:0.72rem; color: var(--text-40); min-width:20px;}
+  .add-btn{
+    padding:8px 16px;
+    border-radius:8px;
+    border:none;
+    background: var(--corallo);
+    color: var(--antracite);
+    font-weight:600;
+    font-size:0.85rem;
+    cursor:pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+  }
+  .add-btn:hover{background: var(--corallo-dark);}
+  .add-btn:active{transform: scale(0.95);}
+  .no-results{color: var(--text-40); font-size:0.85rem; padding:20px 4px; font-style:italic;}
+
+  /* ---------- RECEIPT / CART ---------- */
+  .receipt-wrap{position:sticky; top:16px;}
+  .receipt{
+    background: var(--crema);
+    color: var(--paper-ink);
+    font-family: var(--mono);
+    padding:22px 20px 10px;
+    position:relative;
+    border-radius:8px 8px 0 0;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+  }
+  .receipt::after{
+    content:""; display:block; position:absolute; left:0; right:0; bottom:-9px; height:18px;
+    background:
+      linear-gradient(-45deg, var(--crema) 8px, transparent 0) 0 0,
+      linear-gradient(45deg, var(--crema) 8px, transparent 0) 0 0;
+    background-size:16px 16px; background-repeat:repeat-x;
+  }
+  .receipt-head{text-align:center; border-bottom:1px dashed rgba(36,28,16,0.3); padding-bottom:10px; margin-bottom:10px;}
+  .receipt-head .rh-title{font-weight:700; font-size:0.95rem; letter-spacing:2px;}
+  .receipt-head .rh-sub{font-size:0.66rem; color: var(--paper-ink-40); margin-top:3px;}
+  #cart-lines{min-height:36px; font-size:0.8rem;}
+  .empty-cart{text-align:center; padding:16px 0; color: var(--paper-ink-40); font-size:0.78rem; font-family:'Poppins', sans-serif;}
+  .cart-line{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dotted rgba(36,28,16,0.2);}
+  .cl-name{flex:1; min-width:0; line-height:1.3; font-family:'Poppins', sans-serif; font-size:0.85rem;}
+  .cl-qty{font-size:0.72rem; color: var(--paper-ink-70);}
+  .cl-remove{
+    background:none; border:none; color: var(--paper-ink-40);
+    cursor:pointer; font-size:0.95rem; line-height:1; padding:2px 4px;
+  }
+  .cl-price{min-width:64px; text-align:right; font-weight:700; white-space:nowrap; flex-shrink:0;}
+  .receipt-total{
+    border-top:1px dashed rgba(36,28,16,0.3); margin-top:10px; padding-top:10px;
+    display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:1.1rem; gap:8px;
+  }
+  .receipt-total span:first-child{font-family:'Poppins', sans-serif; font-size:0.9rem;}
+  .receipt-foot{text-align:center; font-size:0.63rem; color: var(--paper-ink-40); margin-top:8px; letter-spacing:1px; font-family:'Poppins', sans-serif;}
+
+  .order-form{margin-top:16px; display:flex; flex-direction:column; gap:10px;}
+  .order-form label{font-size:0.7rem; letter-spacing:1px; text-transform:uppercase; color: var(--text-70); margin-bottom:-4px;}
+  .order-form textarea{
+    font-family:'Poppins', sans-serif; padding:10px 12px; border-radius:12px;
+    border:1.5px solid var(--border); background: rgba(247,241,227,0.06); color: var(--text); font-size:0.88rem;
+  }
+  .order-form textarea::placeholder{color: var(--text-40);}
+
+  .send-btn{
+    margin-top:6px; padding:14px; border:none; border-radius:14px;
+    background: var(--whatsapp); color: var(--bianco);
+    font-weight:700; font-size:1rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition: background 0.12s ease, transform 0.12s ease;
+  }
+  .send-btn:hover{background: var(--whatsapp-dark);}
+  .send-btn:active{transform: scale(0.98);}
+  .send-btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .demo-note{
+    font-size:0.7rem; text-align:center; color: var(--corallo); margin-top:8px; line-height:1.4;
+  }
+
+  /* ---------- ARCHIVE ---------- */
+  .archive-wrap{max-width:1180px; margin:0 auto; padding:20px 16px 0;}
+  .archive-empty{
+    text-align:center; padding:50px 16px; color: var(--text-40); font-size:0.9rem;
+  }
+  .order-card{
+    background: var(--grigio-scuro);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    margin-bottom:14px;
+  }
+  .order-card-head{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+    cursor:pointer;
+  }
+  .order-card-date{font-weight:600; font-size:0.92rem; color: var(--text);}
+  .order-card-sub{font-size:0.75rem; color: var(--text-40); margin-top:2px;}
+  .order-card-total{font-family: var(--mono); font-weight:700; color: var(--corallo); font-size:0.98rem; white-space:nowrap;}
+  .order-card-body{display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);}
+  .order-card-body.open{display:block;}
+  .order-card-line{
+    display:flex; justify-content:space-between; font-size:0.82rem; padding:4px 0; color: var(--text-70);
+    font-family: var(--mono);
+  }
+  .order-card-actions{display:flex; gap:8px; margin-top:12px;}
+  .oc-btn{
+    flex:1; padding:9px; border-radius:10px; border:1.5px solid var(--border);
+    background:transparent; color: var(--text-70); font-size:0.8rem; font-weight:500; cursor:pointer;
+  }
+  .oc-btn.primary{background: var(--corallo); border-color: var(--corallo); color: var(--antracite); font-weight:600;}
+  .oc-btn:hover{border-color: var(--corallo); color: var(--corallo);}
+  .oc-btn.primary:hover{background: var(--corallo-dark); color: var(--antracite);}
+
+  footer{text-align:center; margin-top:36px; font-family: var(--mono); font-size:0.68rem; color: var(--text-40);}
+
+  .zc-credit{text-align:center; padding:16px 20px 30px; opacity:0.55;}
+  .zc-credit a{display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:inherit; font-size:12px;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background: var(--corallo); color: var(--antracite);
+    padding:10px 20px; border-radius:999px; font-weight:600; font-size:0.85rem;
+    opacity:0; pointer-events:none; transition: opacity 0.25s ease;
+    z-index:100; white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+
+  /* ---------- AREA IURI ---------- */
+  .iuri-wrap{max-width:1180px; margin:0 auto; padding:20px 16px 40px;}
+  .pin-lock{
+    max-width:300px; margin:70px auto 0; text-align:center;
+    background: var(--grigio-scuro); border:1px solid var(--border);
+    border-radius:16px; padding:34px 26px;
+  }
+  .pin-lock-title{font-weight:600; font-size:1.05rem; color: var(--corallo); margin-bottom:6px;}
+  .pin-lock-sub{font-size:0.78rem; color: var(--text-40); margin-bottom:22px; line-height:1.4;}
+  .pin-input{
+    width:140px; text-align:center; letter-spacing:14px;
+    font-size:1.4rem; font-family: var(--mono);
+    padding:10px 10px 10px 22px; border-radius:10px;
+    border:1.5px solid var(--border); background: rgba(247,241,227,0.06);
+    color: var(--text); margin-bottom:16px;
+  }
+  .pin-btn{
+    width:100%; padding:12px; border:none; border-radius:10px;
+    background: var(--corallo); color: var(--antracite);
+    font-weight:600; font-size:0.9rem; cursor:pointer;
+  }
+  .pin-btn:hover{background: var(--corallo-dark);}
+  .pin-error{color:#ff9b8f; font-size:0.75rem; margin-top:12px; display:none;}
+  .iuri-toolbar{display:flex; gap:10px; margin-bottom:18px;}
+  .iuri-toolbar .search-input{flex:1; margin:0;}
+  .iuri-refresh-btn{
+    flex-shrink:0; padding:0 18px; border-radius:12px; border:1.5px solid var(--border);
+    background:transparent; color: var(--text-70); font-size:0.85rem; font-weight:500; cursor:pointer;
+  }
+  .iuri-refresh-btn:hover{border-color: var(--corallo); color: var(--corallo);}
+  .iuri-state{text-align:center; padding:50px 16px; color: var(--text-40); font-size:0.88rem;}
+  .iuri-order-client{font-weight:600; font-size:0.97rem; color: var(--text);}
+  .iuri-detail{
+    white-space:pre-line; margin-top:10px; font-family: var(--mono);
+    font-size:0.8rem; color: var(--text-70); line-height:1.6;
+  }
+  .iuri-badge{color:#8fd99f; font-size:0.85rem; margin-left:6px;}
+  .iuri-confirm-wrap{margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);}
+  .iuri-confirm-badge{color:#8fd99f; font-size:0.82rem; font-weight:600; margin-bottom:10px;}
+  .iuri-weight-block{margin-bottom:12px;}
+  .iuri-weight-title{
+    font-size:0.72rem; color: var(--text-40); text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:8px;
+  }
+  .iuri-weight-row{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:10px; padding:6px 0; font-size:0.85rem; color: var(--text-70); flex-wrap:wrap;
+  }
+  .iuri-weight-row em{color: var(--text-40); font-style:normal; font-size:0.76rem;}
+  .iuri-weight-input{
+    width:110px; font-family: var(--mono); padding:7px 8px; border-radius:8px;
+    border:1.5px solid var(--border); background: rgba(247,241,227,0.06); color: var(--text);
+    font-size:0.85rem; text-align:center;
+  }
+  .iuri-confirm-btn{
+    width:100%; padding:12px; border:none; border-radius:10px;
+    background: var(--whatsapp); color: var(--bianco);
+    font-weight:600; font-size:0.87rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .iuri-confirm-btn:hover{background: var(--whatsapp-dark);}
+  .iuri-confirm-btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .iuri-resend-btn{background:transparent; border:1.5px solid var(--border); color: var(--text-70);}
+  .iuri-resend-btn:hover{border-color: var(--whatsapp); color: var(--whatsapp); background:transparent;}
+
+  /* ---------- CART QTY STEPPER ---------- */
+  .cl-qty-control{display:flex; align-items:center; gap:4px; flex-shrink:0;}
+  .cl-qty-btn{
+    width:24px; height:24px; border-radius:6px; border:1px solid rgba(36,28,16,0.25);
+    background:transparent; color: var(--paper-ink-70); font-family: var(--mono);
+    font-size:0.95rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .cl-qty-btn:hover{border-color: var(--corallo-dark); color: var(--corallo-dark);}
+  .cl-qty-input{
+    width:42px; text-align:center; font-family: var(--mono); font-size:0.8rem;
+    padding:4px 2px; border-radius:6px; border:1px solid rgba(36,28,16,0.25);
+    background: rgba(255,255,255,0.5); color: var(--paper-ink);
+  }
+
+  /* ---------- AREA COMMSERVICE: righe articolo + disponibilità ---------- */
+  .iuri-items-block{margin-bottom:12px;}
+  .iuri-items-title{
+    font-size:0.72rem; color: var(--text-40); text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:8px;
+  }
+  .iuri-item-row{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:10px; padding:6px 0; font-size:0.85rem; color: var(--text-70); flex-wrap:wrap;
+  }
+  .iuri-avail-toggle{
+    display:flex; align-items:center; gap:6px; font-size:0.76rem;
+    color: var(--text-40); cursor:pointer; white-space:nowrap;
+  }
+  .iuri-avail-toggle input{accent-color: var(--corallo); width:15px; height:15px; cursor:pointer;}
+  .iuri-status-pill{
+    font-size:0.68rem; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap;
+  }
+  .iuri-status-pill.pending{background:rgba(242,127,107,0.18); color: var(--corallo);}
+  .iuri-status-pill.done{background:rgba(143,217,159,0.18); color:#8fd99f;}
+  .iuri-line-unavailable{color:#ff9b8f;}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="zc-symbol" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 73.641 87.109 A 44 44 0 1 1 93.958 51.919 L 75.975 51.134 A 26 26 0 1 0 63.970 71.928 Z" fill="#F27F6B"/>
+  </svg>
+  <h1>Comm<span class="light">Service</span></h1>
+  <div class="tagline">Distribuzione carni · Ordini all'ingrosso</div>
+</header>
+
+<div class="main-tabs">
+  <button class="main-tab active" data-view="ordine">Nuovo ordine</button>
+  <button class="main-tab" data-view="archivio">Archivio ordini</button>
+  <button class="main-tab" data-view="iuri">Area CommService</button>
+</div>
+
+<!-- ================= VISTA: NUOVO ORDINE ================= -->
+<div class="main-view active" id="view-ordine">
+
+  <div class="client-card">
+    <div class="client-box">
+      <div class="client-box-title">Dati cliente</div>
+      <div class="client-grid">
+        <div>
+          <label>Ragione sociale</label>
+          <input type="text" id="f-ragione" placeholder="Nome della macelleria">
+        </div>
+        <div>
+          <label>Indirizzo</label>
+          <input type="text" id="f-indirizzo" placeholder="Via, numero civico, città">
+        </div>
+        <div>
+          <label>Telefono</label>
+          <input type="tel" id="f-telefono" placeholder="Numero di telefono">
+        </div>
+      </div>
+      <div class="client-saved-note">I dati vengono salvati su questo dispositivo per non doverli reinserire ogni volta.</div>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" class="search-input" id="search-input" placeholder="🔍 Cerca prodotto per nome o codice…">
+  </div>
+
+  <div class="wrap">
+    <div>
+      <div class="tabs-wrap" id="tabs-wrap">
+        <div class="tabs" id="tabs"></div>
+      </div>
+      <div id="categories"></div>
+      <div id="search-results" style="display:none;"></div>
+    </div>
+
+    <div class="receipt-wrap">
+      <div class="receipt">
+        <div class="receipt-head">
+          <div class="rh-title">RIEPILOGO ORDINE</div>
+          <div class="rh-sub" id="date-line"></div>
+        </div>
+        <div id="cart-lines"><div class="empty-cart">Nessun articolo selezionato —<br>aggiungi articoli dal listino</div></div>
+        <div class="receipt-foot">COMMSERVICE — ORDINE ARTICOLI</div>
+      </div>
+
+      <div class="order-form">
+        <label>Note (consegna, urgenze, ecc.)</label>
+        <textarea id="f-notes" rows="2" placeholder="Es. consegna entro giovedì…"></textarea>
+
+        <button class="send-btn" id="send-btn" disabled>Invia ordine su WhatsApp →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VISTA: ARCHIVIO ORDINI ================= -->
+<div class="main-view" id="view-archivio">
+  <div class="archive-wrap" id="archive-list">
+    <div class="archive-empty">Nessun ordine ancora inviato da questo dispositivo.</div>
+  </div>
+</div>
+
+<!-- ================= VISTA: AREA IURI (storico consolidato, protetto da PIN) ================= -->
+<div class="main-view" id="view-iuri">
+  <div class="iuri-wrap">
+    <div class="pin-lock" id="pin-lock">
+      <div class="pin-lock-title">Area CommService</div>
+      <div class="pin-lock-sub">Inserisci il PIN per vedere e confermare gli ordini di tutti i clienti</div>
+      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="pin-input" id="pin-input" placeholder="••••" autocomplete="off">
+      <button class="pin-btn" id="pin-btn">Sblocca</button>
+      <div class="pin-error" id="pin-error">PIN errato, riprova.</div>
+    </div>
+    <div id="iuri-content" style="display:none;">
+      <div class="iuri-toolbar">
+        <input type="text" class="search-input" id="iuri-search" placeholder="🔍 Cerca per ragione sociale…">
+        <button class="iuri-refresh-btn" id="iuri-refresh">Aggiorna</button>
+      </div>
+      <div id="iuri-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="zc-credit">
+  <a href="https://zerocomplicazioni.it" target="_blank" rel="noopener">
+    Realizzato con
+    <svg viewBox="0 0 100 100" width="13" height="13" style="flex-shrink:0">
+      <path d="M 73.641 87.109 A 44 44 0 1 1 93.958 51.919 L 75.975 51.134 A 26 26 0 1 0 63.970 71.928 Z" fill="#F27F6B"/>
+    </svg>
+    ZeroComplicazioni
+  </a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================================
+// LISTINO BASE — CommService — validità 01/08/2026-30/11/2026
+// unit: "kg" (prezzo al kg, quantità decimale) oppure "pz" (pezzo/confezione, quantità intera)
+// Unità assegnata per default in base al nome articolo — da verificare con Iuri
+// sulle voci più ambigue (conserve, sottaceti, patatine surgelate).
+// =====================================================================
+const PRODOTTI = {
+  "Carne Bovina GV e Nazionale": [
+    ["001","MEZZENA B.A.",9.80,"kg"],
+    ["002","POSTERIORE B.A.",12.30,"kg"],
+    ["002D","POSTERIORE B.A. DI MEZZENA",9.80,"kg"],
+    ["003","COSCIA C/O B.A.",9.80,"kg"],
+    ["003P","COSCIA C/O B.A. DI POSTERIORE",12.30,"kg"],
+    ["004","ANTERIORE C/P B.A.",7.70,"kg"],
+    ["004D","ANTERIORE C/P B.A. DI MEZZENA",9.80,"kg"],
+    ["004P","ANTERIORE S/P B.A.",8.00,"kg"],
+    ["005","PANCIA B.A.",6.90,"kg"],
+    ["006SV","POLPA MAGRA SV",9.50,"kg"],
+    ["007","SPALLA C/O B.A.",7.00,"kg"],
+    ["008","PETTO C/O B.A.",6.90,"kg"],
+    ["009","PANCIA PETTO B.A.",6.90,"kg"],
+    ["010","LOMBATA B.A.",19.70,"kg"],
+    ["010P","LOMBATA B.A. DI POSTERIORE",12.30,"kg"],
+    ["011","SPALLA SCHIENA C/O B.A.",8.40,"kg"],
+    ["012","SCHIENA C/O B.A.",9.80,"kg"],
+    ["150","SCAMONE B.A.",16.60,"kg"],
+    ["151","FESA FRANCESE B.A.",14.40,"kg"],
+    ["155","MAGATELLO B.A.",16.00,"kg"],
+    ["156","CODONE B.A.",16.00,"kg"],
+    ["158","NOCE B.A.",13.55,"kg"],
+    ["159","BOCCONCINI B.A.",8.50,"kg"],
+    ["160","SOTTOFESA B.A.",12.70,"kg"],
+    ["162","SPINACINO B.A.",11.90,"kg"],
+    ["163","PESCE B.A.",11.50,"kg"],
+    ["165","COPERTINA SPALLA B.A.",9.80,"kg"],
+    ["166","FALATA B.A.",16.00,"kg"],
+    ["170","MUSCOLO B.A.",9.00,"kg"],
+    ["171","FESA SPALLA B.A.",10.50,"kg"],
+    ["18","OSSOBUCO POST. B.A.",5.20,"kg"],
+    ["183","REALE S/O B.A.",12.30,"kg"],
+    ["185","POLPA SPALLA B.A.",9.80,"kg"],
+    ["198","CAPPELLO DEL PRETE B.A.",11.00,"kg"],
+    ["TAGL","TAGLIATA B.A.",15.00,"kg"],
+  ],
+  "Carne Bovina UE": [
+    ["002SPA","POSTERIORE B.A. SPA",11.20,"kg"],
+    ["003PE","COSCIA C/O B.A. DI POSTERIORE UE",11.20,"kg"],
+    ["010A","LOMBATA B.A. ANGUS IRL",17.80,"kg"],
+    ["010DE","LOMBATA B.A. TEDESCA DE",17.20,"kg"],
+    ["010DK","LOMBATA B.A. DANESE DK",17.20,"kg"],
+    ["010PE","LOMBATA B.A. DI POSTERIORE UE",11.20,"kg"],
+    ["010PL","LOMBATA B.A. POLACCA PL",16.80,"kg"],
+    ["150E","SCAMONE B.A. UE",15.10,"kg"],
+    ["151E","FESA FRANCESE B.A. UE",12.50,"kg"],
+    ["152E","FESA A CUORE B.A. UE",13.40,"kg"],
+    ["154SPA","LOMBATA B.A. SPA",17.50,"kg"],
+    ["155E","MAGATELLO B.A. UE",13.60,"kg"],
+    ["156E","CODONE B.A. UE",14.20,"kg"],
+    ["158E","NOCE B.A. UE",11.90,"kg"],
+    ["160E","SOTTOFESA B.A. UE",11.90,"kg"],
+    ["162E","SPINACINO B.A. UE",11.60,"kg"],
+    ["163E","PESCE B.A. UE",10.00,"kg"],
+    ["168E","COPERTINA FESA B.A. UE",9.80,"kg"],
+    ["18E","OSSOBUCO POST. B.A. UE",5.20,"kg"],
+    ["88","TESTA FILETTO B.A.",24.00,"kg"],
+    ["TOM","TOMAHAWK B.A.",23.00,"kg"],
+  ],
+  "Prodotti Carnei": [
+    ["187","BRESAOLA",28.50,"kg"],
+    ["190","CARNE SALAA",17.00,"kg"],
+    ["191","ROAST BEEF COTTO",23.00,"kg"],
+    ["200","WURSTEL 2 PEZZI",8.50,"pz"],
+    ["201","WURSTEL 3 PEZZI",8.50,"pz"],
+    ["37","LINGUA B.A. SALMISTRATA",9.50,"kg"],
+    ["5300","RAGU' BOVINO VASETTO 250GR",7.00,"pz"],
+    ["5300B","RAGU' MISTO MANZO/SUINO VASETTO 250GR",7.00,"pz"],
+    ["6006","SPECK DELIZIA",9.70,"kg"],
+    ["6007","SPECK ABRAM",9.70,"kg"],
+    ["6011","SPECK MARCHIORI",10.20,"kg"],
+    ["6012","SPECK JM",16.50,"kg"],
+    ["69","TESTINA VITELLO ARROTOLATA GELO",9.50,"kg"],
+    ["8000","BISTECCONE B.A.",15.00,"kg"],
+    ["CHI","CHILI VASI 1,5KG",16.00,"pz"],
+    ["NERV","INSALATA DI NERVETTI",7.50,"kg"],
+    ["PBUNS","PANE BUNS",2.95,"pz"],
+    ["PO","STRACCETTI DI POLLO VASI 1,5KG",17.50,"pz"],
+    ["TORT","TORTELLINI DI CARNE",23.50,"kg"],
+    ["TORTIL","TORTILLA 18X8 CT",6.13,"pz"],
+  ],
+  "Prodotti secchi e sottaceti": [
+    ["6000","ZUPPA SAPORITA",1.45,"pz"],
+    ["6001","POLENTA CON PORCINI",1.60,"pz"],
+    ["6002","POLENTA CON SPECK",1.60,"pz"],
+    ["6003","PURE' DI PATATE DA 100 GR/PZ",1.35,"pz"],
+    ["6003B","PURE' DI PATATE DA 1 KG",7.10,"pz"],
+    ["6004","PEARA'",1.50,"pz"],
+    ["6009","SOTTOACETI PEPERONI SIGARETTA/CORNO GR 300",3.45,"pz"],
+    ["6013","SOTTOACETI PEPERONI SIGARETTA/CORNO GR 200",3.00,"pz"],
+    ["6014","SOTTOACETI GIARDINIERA",3.95,"pz"],
+    ["6016","CREN VASETTI 90 GR",2.30,"pz"],
+    ["6016B","CREN VASETTI 180 GR",3.60,"pz"],
+    ["BIR","BIRRA",15.00,"pz"],
+  ],
+  "Prodotti Gelo Patatine": [
+    ["PBRAVI","BRAVI PATATE 10MM 5X2,5KG",1.74,"pz"],
+    ["PCAME","BOCCONCINI CAMEMBERT BITES",10.09,"pz"],
+    ["PCRISPY","PATATINE CRISPY COATED",1.99,"pz"],
+    ["PCROQ","CROCCHETTE DI PATATA 4X2,5KG",2.67,"pz"],
+    ["PJALA","BOCCONCINI JALAPENO CHEESE BITES",9.98,"pz"],
+    ["PMASH","MASH PURE' 4X2,5KG",2.55,"pz"],
+    ["PMOZZA","MOZZARELLA MED STICK",8.97,"pz"],
+    ["PNACHO","TRIANGOLI NACHO CHEESE 6X1KG",8.77,"pz"],
+    ["PONION","ONION RINGS BREADED",4.06,"pz"],
+    ["PSCOOPS","PATATINE SCOOPS COAT",2.60,"pz"],
+    ["PURBAN","URBAN FRIES 10MM 5X2,5KG",2.42,"pz"],
+    ["PWEDGES","WEDGES CUT-ON SPICCHIO 4X2,5KG",2.48,"pz"],
+  ],
+  "Frattaglie": [
+    ["120","LOMBATELLO B.A.",10.00,"kg"],
+    ["194","DIAFRAMMA B.A.",10.50,"kg"],
+    ["195","QUINTO QUARTO B.A.",0.10,"kg"],
+    ["211","TRIPPA B.A. TAGLIATA",6.40,"kg"],
+    ["211B","TRIPPA B.A. INTERA",5.50,"kg"],
+    ["214","FRATTAGLIA B.A.",1.50,"kg"],
+    ["215","FEGATO B.A.",3.50,"kg"],
+    ["217","NERVETTI B.A.",2.00,"kg"],
+    ["219","CODA B.A.",8.50,"kg"],
+    ["220","GUANCIA B.A.",15.50,"kg"],
+    ["221","MILZA B.A.",1.00,"kg"],
+    ["222","ZAMPE B.A.",0.80,"kg"],
+    ["34","CUORE B.A.",1.50,"kg"],
+    ["364","OSSA BOVINO",0.25,"kg"],
+    ["38","LINGUA B.A.",10.00,"kg"],
+  ],
+  "Prodotti Iberici e UE": [
+    ["2010","COSTINE IBERICHE",9.20,"kg"],
+    ["2031","LOMBO SUINO IBERICO",13.70,"kg"],
+    ["2032","ABANICO IBERICO",16.10,"kg"],
+    ["2033","FRENCH RACK IBERICO",18.10,"kg"],
+    ["2034","PLUMA IBERICA",25.50,"kg"],
+    ["2035","GUANCIALE SUINO IBERICO",17.70,"kg"],
+  ],
+  "Congelato": [
+    ["8001","BISTECCONE B.A. CONG.",15.00,"kg"],
+    ["G10SPA","CAPPELLO DEL PRETE B.A. SPA CONG.",10.50,"kg"],
+    ["G159","BOCCONCINI B.A. CONG.",8.50,"kg"],
+    ["G169","FILETTO B.A. CONG.",24.00,"kg"],
+    ["G216","LINGUA B.A. GELO",8.50,"kg"],
+    ["G219","CODA B.A. CONG.",8.50,"kg"],
+    ["G220","GUANCIA B.A. CONG.",15.00,"kg"],
+    ["GTAGL","TAGLIATA B.A. CONG.",15.00,"kg"],
+  ],
+};
+
+const WHATSAPP_NUMERO = "393357743889"; // Iuri — CommService
+
+// Backend condiviso (foglio Google + Apps Script) — vedi commento in testa al file.
+// TODO: sostituire con l'URL del deployment definitivo prima dell'uso reale.
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztvxoHXBKuWY5EGDt_Qkoynfsx3FVzUmlhixr_4Cib46AhxoV45fShraMFpzTujsWu/exec";
+
+// PIN a 4 cifre per l'Area Iuri (protezione lato client, non sicurezza vera — vedi commento in testa).
+const IURI_PIN = "5720";
+
+const LS_CLIENTE = "cs_cliente";
+const LS_ORDINI = "cs_ordini";
+
+function fmtQty(qty){ return qty + " pz"; }
+
+let cart = []; // {id, cod, nome, qty}
+let lineIdCounter = 0;
+
+// ---------- MAIN TABS ----------
+document.querySelectorAll(".main-tab").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".main-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".main-view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + btn.dataset.view).classList.add("active");
+    if(btn.dataset.view === "archivio") renderArchive();
+  };
+});
+
+// ---------- BUILD CATEGORY TABS + PRODUCT LIST ----------
+const tabsEl = document.getElementById("tabs");
+const catsEl = document.getElementById("categories");
+const catNames = Object.keys(PRODOTTI);
+
+// Il tool non calcola più prezzi: ogni riga di PRODOTTI conserva ancora
+// [cod, nome, prezzo, unitaListino] per comodità interna, ma prezzo/unità
+// non sono più mostrati né usati — si ordina sempre in pezzi/confezioni.
+function buildItemRow(cod, nome){
+  const row = document.createElement("div");
+  row.className = "item";
+
+  row.innerHTML = `
+    <div class="item-info">
+      <div class="item-cod">${cod}</div>
+      <div class="item-name">${nome}</div>
+    </div>
+    <div class="item-controls">
+      <input type="number" class="qty-input" min="1" step="1" value="1">
+      <button class="add-btn">Aggiungi</button>
+    </div>
+  `;
+  const qtyInput = row.querySelector(".qty-input");
+
+  row.querySelector(".add-btn").onclick = () => {
+    let qty = parseInt(qtyInput.value, 10);
+    if(!qty || qty <= 0) qty = 1;
+    addToCart(cod, nome, qty);
+    qtyInput.value = "1";
+  };
+  return row;
+}
+
+catNames.forEach((cat, idx) => {
+  const tab = document.createElement("button");
+  tab.className = "tab" + (idx===0 ? " active" : "");
+  tab.textContent = cat;
+  tab.dataset.cat = cat;
+  tab.onclick = () => switchTab(cat);
+  tabsEl.appendChild(tab);
+
+  const section = document.createElement("div");
+  section.className = "category" + (idx===0 ? " active" : "");
+  section.dataset.cat = cat;
+
+  const title = document.createElement("div");
+  title.className = "cat-title";
+  title.textContent = cat;
+  section.appendChild(title);
+
+  PRODOTTI[cat].forEach(([cod, nome, prezzo, unit]) => {
+    section.appendChild(buildItemRow(cod, nome, prezzo, unit));
+  });
+
+  catsEl.appendChild(section);
+});
+
+function switchTab(cat){
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.cat === cat));
+  document.querySelectorAll(".category").forEach(s => s.classList.toggle("active", s.dataset.cat === cat));
+}
+
+// ---------- SEARCH ----------
+const searchInput = document.getElementById("search-input");
+const searchResults = document.getElementById("search-results");
+const tabsWrap = document.getElementById("tabs-wrap");
+
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if(!q){
+    searchResults.style.display = "none";
+    catsEl.style.display = "block";
+    tabsWrap.classList.remove("hidden");
+    return;
+  }
+  tabsWrap.classList.add("hidden");
+  catsEl.style.display = "none";
+  searchResults.style.display = "block";
+  searchResults.innerHTML = "";
+
+  let found = false;
+  catNames.forEach(cat => {
+    PRODOTTI[cat].forEach(([cod, nome, prezzo, unit]) => {
+      if(nome.toLowerCase().includes(q) || cod.toLowerCase().includes(q)){
+        found = true;
+        searchResults.appendChild(buildItemRow(cod, nome, prezzo, unit));
+      }
+    });
+  });
+  if(!found){
+    searchResults.innerHTML = '<div class="no-results">Nessun prodotto trovato per "' + searchInput.value + '"</div>';
+  }
+});
+
+// ---------- CART ----------
+function addToCart(cod, nome, qty){
+  const existing = cart.find(l => l.cod === cod);
+  if(existing){
+    existing.qty += qty;
+  } else {
+    cart.push({ id: ++lineIdCounter, cod, nome, qty });
+  }
+  renderCart();
+  showToast(nome + " aggiunto");
+}
+
+function removeLine(id){
+  const idx = cart.findIndex(l => l.id === id);
+  if(idx > -1) cart.splice(idx, 1);
+  renderCart();
+}
+
+function setLineQty(id, qty){
+  const line = cart.find(l => l.id === id);
+  if(!line) return;
+  qty = parseInt(qty, 10);
+  line.qty = (!qty || qty < 1) ? 1 : qty;
+}
+
+function renderCart(){
+  const linesEl = document.getElementById("cart-lines");
+  if(cart.length === 0){
+    linesEl.innerHTML = '<div class="empty-cart">Nessun articolo selezionato —<br>aggiungi articoli dal listino</div>';
+  } else {
+    linesEl.innerHTML = cart.map(line => `
+      <div class="cart-line">
+        <div class="cl-name">${line.nome}</div>
+        <div class="cl-qty-control">
+          <button type="button" class="cl-qty-btn" data-id="${line.id}" data-delta="-1">−</button>
+          <input type="number" class="cl-qty-input" data-id="${line.id}" min="1" step="1" value="${line.qty}">
+          <button type="button" class="cl-qty-btn" data-id="${line.id}" data-delta="1">+</button>
+        </div>
+        <button class="cl-remove" data-id="${line.id}" aria-label="Rimuovi">✕</button>
+      </div>
+    `).join("");
+    linesEl.querySelectorAll(".cl-remove").forEach(btn => {
+      btn.onclick = () => removeLine(parseInt(btn.dataset.id));
+    });
+    linesEl.querySelectorAll(".cl-qty-btn").forEach(btn => {
+      btn.onclick = () => {
+        const id = parseInt(btn.dataset.id);
+        const line = cart.find(l => l.id === id);
+        if(!line) return;
+        setLineQty(id, line.qty + parseInt(btn.dataset.delta, 10));
+        renderCart();
+      };
+    });
+    linesEl.querySelectorAll(".cl-qty-input").forEach(inp => {
+      inp.onchange = () => setLineQty(parseInt(inp.dataset.id), inp.value);
+    });
+  }
+  document.getElementById("send-btn").disabled = cart.length === 0;
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+// date line
+document.getElementById("date-line").textContent = new Date().toLocaleDateString("it-IT", {
+  weekday:'short', day:'numeric', month:'short', year:'numeric'
+});
+
+// ---------- CLIENT INFO: load/save ----------
+const fRagione = document.getElementById("f-ragione");
+const fIndirizzo = document.getElementById("f-indirizzo");
+const fTelefono = document.getElementById("f-telefono");
+
+function loadCliente(){
+  try{
+    const raw = localStorage.getItem(LS_CLIENTE);
+    if(raw){
+      const c = JSON.parse(raw);
+      fRagione.value = c.ragioneSociale || "";
+      fIndirizzo.value = c.indirizzo || "";
+      fTelefono.value = c.telefono || "";
+    }
+  }catch(e){}
+}
+function saveCliente(){
+  const c = {
+    ragioneSociale: fRagione.value.trim(),
+    indirizzo: fIndirizzo.value.trim(),
+    telefono: fTelefono.value.trim()
+  };
+  try{ localStorage.setItem(LS_CLIENTE, JSON.stringify(c)); }catch(e){}
+  return c;
+}
+loadCliente();
+
+// ---------- SEND ORDER ----------
+document.getElementById("send-btn").onclick = () => {
+  const ragione = fRagione.value.trim();
+  const indirizzo = fIndirizzo.value.trim();
+  const telefono = fTelefono.value.trim();
+  const notes = document.getElementById("f-notes").value.trim();
+
+  if(!ragione || !telefono){
+    alert("Inserisci almeno ragione sociale e telefono prima di inviare l'ordine.");
+    return;
+  }
+  if(cart.length === 0) return;
+
+  const cliente = saveCliente();
+  const now = new Date();
+
+  let msg = `🥩 *Nuovo ordine CommService*\n\n`;
+  msg += `Ragione sociale: ${ragione}\n`;
+  if(indirizzo) msg += `Indirizzo: ${indirizzo}\n`;
+  msg += `Telefono: ${telefono}\n\n`;
+  cart.forEach(line => {
+    msg += `${fmtQty(line.qty)} — ${line.nome} (${line.cod})\n`;
+  });
+  if(notes) msg += `\nNote: ${notes}\n`;
+
+  const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+
+  // salva nell'archivio locale
+  const ordine = {
+    id: "ord_" + now.getTime(),
+    data: now.toISOString(),
+    cliente: cliente,
+    righe: cart.map(l => ({ cod: l.cod, nome: l.nome, qty: l.qty })),
+    note: notes
+  };
+  saveOrdine(ordine);
+
+  // Salva anche sul backend condiviso, per lo storico consolidato in Area Iuri.
+  // Non bloccante: se fallisce (rete assente, endpoint cambiato) l'ordine è comunque
+  // partito su WhatsApp e salvato in locale — qui logghiamo soltanto l'errore.
+  fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(ordine)
+  }).catch(function(err){
+    console.warn("CommService: impossibile salvare l'ordine sul backend condiviso.", err);
+  });
+
+  // reset carrello
+  cart = [];
+  renderCart();
+  document.getElementById("f-notes").value = "";
+  showToast("Ordine inviato e salvato in archivio");
+};
+
+// ---------- ARCHIVIO ORDINI ----------
+function loadOrdini(){
+  try{
+    const raw = localStorage.getItem(LS_ORDINI);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveOrdine(ordine){
+  const ordini = loadOrdini();
+  ordini.unshift(ordine);
+  try{ localStorage.setItem(LS_ORDINI, JSON.stringify(ordini)); }catch(e){}
+}
+function deleteOrdine(id){
+  let ordini = loadOrdini();
+  ordini = ordini.filter(o => o.id !== id);
+  try{ localStorage.setItem(LS_ORDINI, JSON.stringify(ordini)); }catch(e){}
+  renderArchive();
+}
+function riordina(id){
+  const ordini = loadOrdini();
+  const ordine = ordini.find(o => o.id === id);
+  if(!ordine) return;
+  cart = ordine.righe.map(r => ({ id: ++lineIdCounter, cod: r.cod, nome: r.nome, qty: r.qty || 1 }));
+  renderCart();
+  document.querySelector('.main-tab[data-view="ordine"]').click();
+  showToast("Ordine ricaricato — modifica le quantità se serve");
+}
+
+function renderArchive(){
+  const listEl = document.getElementById("archive-list");
+  const ordini = loadOrdini();
+  if(ordini.length === 0){
+    listEl.innerHTML = '<div class="archive-empty">Nessun ordine ancora inviato da questo dispositivo.</div>';
+    return;
+  }
+  listEl.innerHTML = ordini.map(o => {
+    const d = new Date(o.data);
+    const dataStr = d.toLocaleDateString("it-IT", { day:'numeric', month:'short', year:'numeric' }) +
+                     " · " + d.toLocaleTimeString("it-IT", { hour:'2-digit', minute:'2-digit' });
+    return `
+      <div class="order-card">
+        <div class="order-card-head" data-id="${o.id}">
+          <div>
+            <div class="order-card-date">${dataStr}</div>
+            <div class="order-card-sub">${o.cliente.ragioneSociale || "—"} · ${o.righe.length} articoli</div>
+          </div>
+        </div>
+        <div class="order-card-body" id="body-${o.id}">
+          ${o.righe.map(r => `
+            <div class="order-card-line">
+              <span>${fmtQty(r.qty)} — ${r.nome}</span>
+            </div>
+          `).join("")}
+          ${o.note ? `<div class="order-card-sub" style="margin-top:8px;">Note: ${o.note}</div>` : ""}
+          <div class="order-card-actions">
+            <button class="oc-btn primary" data-action="riordina" data-id="${o.id}">Riordina</button>
+            <button class="oc-btn" data-action="elimina" data-id="${o.id}">Elimina</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  listEl.querySelectorAll(".order-card-head").forEach(head => {
+    head.onclick = () => {
+      document.getElementById("body-" + head.dataset.id).classList.toggle("open");
+    };
+  });
+  listEl.querySelectorAll('[data-action="riordina"]').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); riordina(btn.dataset.id); };
+  });
+  listEl.querySelectorAll('[data-action="elimina"]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if(confirm("Eliminare questo ordine dall'archivio?")) deleteOrdine(btn.dataset.id);
+    };
+  });
+}
+
+renderCart();
+
+// ---------- AREA IURI (storico consolidato, protetto da PIN) ----------
+let iuriUnlocked = false;
+let iuriOrdiniCache = [];
+
+function checkIuriPin(){
+  const input = document.getElementById("pin-input");
+  const errEl = document.getElementById("pin-error");
+  if(input.value.trim() === IURI_PIN){
+    iuriUnlocked = true;
+    document.getElementById("pin-lock").style.display = "none";
+    document.getElementById("iuri-content").style.display = "block";
+    errEl.style.display = "none";
+    loadIuriOrdini();
+  } else {
+    errEl.style.display = "block";
+    input.value = "";
+    input.focus();
+  }
+}
+document.getElementById("pin-btn").onclick = checkIuriPin;
+document.getElementById("pin-input").addEventListener("keydown", function(e){
+  if(e.key === "Enter") checkIuriPin();
+});
+document.getElementById("iuri-refresh").onclick = loadIuriOrdini;
+document.getElementById("iuri-search").addEventListener("input", renderIuriList);
+
+let iuriOrdiniByKey = {};
+
+async function loadIuriOrdini(){
+  const listEl = document.getElementById("iuri-list");
+  listEl.innerHTML = '<div class="iuri-state">Caricamento storico…</div>';
+  try{
+    const res = await fetch(APPS_SCRIPT_URL, { method: "GET" });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    iuriOrdiniByKey = {};
+    iuriOrdiniCache = (data.ordini || []).map(function(o, i){
+      o._key = o.id || ("idx" + i);
+      iuriOrdiniByKey[o._key] = o;
+      return o;
+    });
+    renderIuriList();
+  }catch(err){
+    listEl.innerHTML = '<div class="iuri-state">Impossibile caricare lo storico. Controlla la connessione e riprova con "Aggiorna".</div>';
+    console.warn("CommService: errore caricamento Area Iuri.", err);
+  }
+}
+
+function renderIuriList(){
+  const q = document.getElementById("iuri-search").value.trim().toLowerCase();
+  const listEl = document.getElementById("iuri-list");
+  const filtrati = iuriOrdiniCache.filter(function(o){
+    return !q || (o.ragioneSociale || "").toLowerCase().includes(q);
+  });
+  if(filtrati.length === 0){
+    listEl.innerHTML = '<div class="iuri-state">' + (iuriOrdiniCache.length === 0 ? "Nessun ordine ricevuto finora." : "Nessun cliente trovato per \"" + q + "\".") + '</div>';
+    return;
+  }
+  listEl.innerHTML = filtrati.map(function(o, idx){
+    const d = new Date(o.data);
+    const dataStr = isNaN(d) ? "" : d.toLocaleDateString("it-IT", { day:'numeric', month:'short', year:'numeric' }) +
+                     " · " + d.toLocaleTimeString("it-IT", { hour:'2-digit', minute:'2-digit' });
+    const righe = o.righe || [];
+    const nArticoli = righe.length;
+    const confermato = o.confermato === "SI";
+    const statusHtml = confermato
+      ? '<span class="iuri-status-pill done">Confermato</span>'
+      : '<span class="iuri-status-pill pending">Da confermare</span>';
+    const dettaglio = (o.dettaglio || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    const confermaHtml = confermato ? `
+      <div class="iuri-confirm-badge">✓ Ordine confermato, cliente avvisato</div>
+      <div class="iuri-detail">${dettaglio}</div>
+      <button type="button" class="iuri-confirm-btn iuri-resend-btn" data-key="${o._key}" style="margin-top:10px;">Reinvia conferma su WhatsApp</button>
+    ` : `
+      <div class="iuri-items-block">
+        <div class="iuri-items-title">Articoli ordinati — segnala quelli non disponibili</div>
+        ${righe.map(function(r, i){
+          return `<div class="iuri-item-row">
+            <span>${fmtQty(r.qty)} — ${r.nome}</span>
+            <label class="iuri-avail-toggle">
+              <input type="checkbox" data-key="${o._key}" data-riga="${i}">
+              non disponibile
+            </label>
+          </div>`;
+        }).join("")}
+      </div>
+      <button type="button" class="iuri-confirm-btn" data-key="${o._key}">✓ Conferma ordine e invia WhatsApp al cliente</button>
+    `;
+
+    return `
+      <div class="order-card">
+        <div class="order-card-head" data-idx="${idx}">
+          <div>
+            <div class="iuri-order-client">${o.ragioneSociale || "—"}</div>
+            <div class="order-card-sub">${dataStr} · ${o.telefono || "—"} · ${nArticoli} articoli</div>
+          </div>
+          ${statusHtml}
+        </div>
+        <div class="order-card-body" id="iuri-body-${idx}">
+          ${o.indirizzo ? `<div class="order-card-sub">Indirizzo: ${o.indirizzo}</div>` : ""}
+          ${o.note ? `<div class="order-card-sub" style="margin-bottom:8px;">Note: ${o.note}</div>` : ""}
+          <div class="iuri-confirm-wrap">${confermaHtml}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  listEl.querySelectorAll(".order-card-head").forEach(function(head){
+    head.onclick = function(){
+      document.getElementById("iuri-body-" + head.dataset.idx).classList.toggle("open");
+    };
+  });
+  listEl.querySelectorAll(".iuri-confirm-btn:not(.iuri-resend-btn)").forEach(function(btn){
+    btn.onclick = function(e){ e.stopPropagation(); confermaOrdineIuri(btn.dataset.key); };
+  });
+  listEl.querySelectorAll(".iuri-resend-btn").forEach(function(btn){
+    btn.onclick = function(e){ e.stopPropagation(); reinviaConfermaIuri(btn.dataset.key); };
+  });
+}
+
+function formatRigaTesto_(r){
+  var qtyTxt = (r.qty || 0) + " pz";
+  return "• " + qtyTxt + " — " + r.nome + (r.disponibile === false ? " ❌ non disponibile" : "");
+}
+
+function toWhatsappNumero_(tel){
+  var digits = String(tel || "").replace(/\D/g, "");
+  if(digits.indexOf("0039") === 0) digits = digits.slice(2);
+  if(digits.indexOf("39") === 0 && digits.length > 10) return digits;
+  return "39" + digits;
+}
+
+function inviaConfermaWhatsapp_(o){
+  var numero = toWhatsappNumero_(o.telefono);
+  var d = new Date(o.data);
+  var dataStr = isNaN(d) ? "" : d.toLocaleDateString("it-IT");
+  var msg = "✅ *Ordine confermato — CommService*\n\n";
+  msg += "Il tuo ordine" + (dataStr ? " del " + dataStr : "") + " è stato preso in carico:\n\n";
+  msg += (o.dettaglio || "") + "\n\n";
+  var haNonDisponibili = (o.righe || []).some(function(r){ return r.disponibile === false; });
+  if(haNonDisponibili) msg += "⚠️ Alcuni articoli segnati non sono disponibili, vedi sopra.\n\n";
+  msg += "Grazie per l'ordine!";
+  var url = "https://wa.me/" + numero + "?text=" + encodeURIComponent(msg);
+  window.open(url, "_blank");
+}
+
+async function confermaOrdineIuri(key){
+  const o = iuriOrdiniByKey[key];
+  if(!o) return;
+  const righeOriginali = o.righe || [];
+  const righeAggiornate = righeOriginali.map(function(r, i){
+    const input = document.querySelector('.iuri-avail-toggle input[data-key="' + key + '"][data-riga="' + i + '"]');
+    const nonDisponibile = input ? input.checked : false;
+    return Object.assign({}, r, { disponibile: !nonDisponibile });
+  });
+
+  const btn = document.querySelector('.iuri-confirm-btn[data-key="' + key + '"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Invio in corso…"; }
+
+  const dettaglioAggiornato = righeAggiornate.map(formatRigaTesto_).join("\n");
+
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "conferma", id: o.id, righe: righeAggiornate })
+    });
+  }catch(err){
+    console.warn("CommService: impossibile salvare la conferma sul backend condiviso.", err);
+  }
+
+  o.righe = righeAggiornate;
+  o.confermato = "SI";
+  o.dettaglio = dettaglioAggiornato;
+
+  inviaConfermaWhatsapp_(o);
+  renderIuriList();
+}
+
+function reinviaConfermaIuri(key){
+  const o = iuriOrdiniByKey[key];
+  if(!o) return;
+  inviaConfermaWhatsapp_(o);
+}
+</script>
+
+<footer>CommService · ordini articoli e quantità</footer>
+
+</body>
+</html>
