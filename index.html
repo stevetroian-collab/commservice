@@ -3,7 +3,7 @@
   Tool costruito da ZeroComplicazioni per CommService (distribuzione carni), a uso dei
   clienti macellai che devono trasmettere ordini periodici.
 
-v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quantità
+  v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quantità
   (in pezzi/confezioni). Il prezzo di listino resta visibile in elenco articoli
   (di riferimento per il cliente), ma non compare mai nel riepilogo ordine né in
   un calcolo di totale.
@@ -498,6 +498,86 @@ v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quant
   .iuri-status-pill.pending{background:rgba(242,127,107,0.18); color: var(--corallo);}
   .iuri-status-pill.done{background:rgba(143,217,159,0.18); color:#8fd99f;}
   .iuri-line-unavailable{color:#ff9b8f;}
+
+  /* ---------- LISTINO AGGIORNATO (nota sotto la ricerca, vista Nuovo ordine) ---------- */
+  .listino-updated-note{
+    max-width:1180px; margin:8px auto 0; padding:0 16px;
+    font-size:0.7rem; color: var(--text-40); font-style:italic;
+  }
+
+  /* ---------- AREA COMMSERVICE: SOTTO-TAB (Ordini clienti / Gestione listino) ---------- */
+  .iuri-subtabs{display:flex; gap:8px; margin-bottom:18px;}
+  .iuri-subtab{
+    padding:9px 16px; border-radius:999px; border:1.5px solid var(--border);
+    background:transparent; color: var(--text-70); font-weight:500; font-size:0.82rem; cursor:pointer;
+  }
+  .iuri-subtab.active{background: var(--corallo-dark); border-color: var(--corallo-dark); color: var(--bianco); font-weight:600;}
+  .iuri-subview{display:none;}
+  .iuri-subview.active{display:block;}
+
+  /* ---------- GESTIONE LISTINO ---------- */
+  .gl-toolbar{display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;}
+  .gl-toolbar .search-input{flex:1; min-width:220px; margin:0;}
+  .gl-add-btn{
+    padding:11px 18px; border-radius:12px; border:none; background: var(--corallo);
+    color: var(--antracite); font-weight:600; font-size:0.88rem; white-space:nowrap; cursor:pointer;
+  }
+  .gl-add-btn:hover{background: var(--corallo-dark);}
+  .gl-cat-title{font-weight:600; font-size:1.1rem; color: var(--corallo); margin:22px 0 10px;}
+  .gl-cat-block:first-of-type .gl-cat-title{margin-top:0;}
+  .gl-table{width:100%; border-collapse:collapse; font-size:0.86rem;}
+  .gl-table thead th{
+    text-align:left; font-size:0.68rem; letter-spacing:0.6px; text-transform:uppercase;
+    color: var(--text-40); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border);
+  }
+  .gl-table tbody td{padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:middle;}
+  .gl-cod{font-family: var(--mono); font-size:0.7rem; color: var(--text-40); display:block;}
+  .gl-nome{font-weight:500;}
+  .gl-prezzo{font-family: var(--mono); color: var(--corallo); white-space:nowrap;}
+  .gl-validita{font-size:0.76rem; color: var(--text-70); white-space:nowrap;}
+  .gl-badge{
+    display:inline-block; font-size:0.66rem; font-weight:600; padding:3px 9px;
+    border-radius:999px; margin-left:6px; white-space:nowrap;
+  }
+  .gl-badge.attivo{background:rgba(143,217,159,0.16); color:#8fd99f;}
+  .gl-badge.futuro{background:rgba(255,206,138,0.16); color:#ffce8a;}
+  .gl-badge.scaduto{background:rgba(255,155,143,0.16); color:#ff9b8f;}
+  .gl-row-actions{white-space:nowrap; text-align:right;}
+  .gl-icon-btn{
+    background:transparent; border:1.5px solid var(--border); color: var(--text-70);
+    border-radius:8px; padding:6px 11px; font-size:0.78rem; font-weight:500; margin-left:6px; cursor:pointer;
+  }
+  .gl-icon-btn:hover{border-color: var(--corallo); color: var(--corallo);}
+  .gl-icon-btn.danger{color:#ff9b8f; border-color: rgba(255,155,143,0.35);}
+  .gl-icon-btn.danger:hover{border-color:#ff9b8f; color:#ff9b8f;}
+  .gl-empty{color: var(--text-40); font-size:0.85rem; padding:20px 4px; font-style:italic;}
+
+  .gl-edit-card{
+    margin-top:10px; margin-bottom:26px; background: var(--grigio-scuro); border:1.5px solid var(--corallo);
+    border-radius:16px; padding:22px 24px;
+  }
+  .gl-edit-card.hidden{display:none;}
+  .gl-edit-card-title{font-weight:600; color: var(--corallo); font-size:0.98rem; margin-bottom:16px;}
+  .gl-form-grid{display:grid; grid-template-columns: repeat(3, 1fr); gap:14px;}
+  @media(max-width:700px){ .gl-form-grid{grid-template-columns: 1fr 1fr;} }
+  .gl-field label{
+    display:block; font-size:0.68rem; letter-spacing:0.6px; text-transform:uppercase;
+    color: var(--text-40); margin-bottom:6px;
+  }
+  .gl-field input, .gl-field select{
+    width:100%; font-family:'Poppins', sans-serif; padding:9px 11px; border-radius:9px;
+    border:1.5px solid var(--border); background: rgba(247,241,227,0.05); color: var(--text);
+    font-size:0.87rem;
+  }
+  .gl-unit-toggle{display:flex; border:1.5px solid var(--border); border-radius:9px; overflow:hidden;}
+  .gl-unit-opt{flex:1; text-align:center; padding:9px 0; font-size:0.82rem; color: var(--text-70); cursor:pointer; background:transparent; border:none; font-family:'Poppins', sans-serif;}
+  .gl-unit-opt.sel{background: var(--corallo); color: var(--antracite); font-weight:600;}
+  .gl-noscad{display:flex; align-items:center; gap:6px; font-size:0.75rem; color: var(--text-40); margin-top:6px; cursor:pointer;}
+  .gl-noscad input{accent-color: var(--corallo);}
+  .gl-form-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+  .gl-btn-secondary{padding:10px 18px; border-radius:10px; border:1.5px solid var(--border); background:transparent; color: var(--text-70); font-weight:500; font-size:0.85rem; cursor:pointer;}
+  .gl-btn-primary{padding:10px 20px; border-radius:10px; border:none; background: var(--corallo); color: var(--antracite); font-weight:600; font-size:0.85rem; cursor:pointer;}
+  .gl-btn-primary:hover{background: var(--corallo-dark);}
 </style>
 </head>
 <body>
@@ -543,6 +623,7 @@ v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quant
   <div class="search-wrap">
     <input type="text" class="search-input" id="search-input" placeholder="🔍 Cerca prodotto per nome o codice…">
   </div>
+  <div class="listino-updated-note" id="listino-updated-note"></div>
 
   <div class="wrap">
     <div>
@@ -591,11 +672,75 @@ v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quant
       <div class="pin-error" id="pin-error">PIN errato, riprova.</div>
     </div>
     <div id="iuri-content" style="display:none;">
-      <div class="iuri-toolbar">
-        <input type="text" class="search-input" id="iuri-search" placeholder="🔍 Cerca per ragione sociale…">
-        <button class="iuri-refresh-btn" id="iuri-refresh">Aggiorna</button>
+
+      <div class="iuri-subtabs">
+        <button class="iuri-subtab active" data-sub="ordini">Ordini clienti</button>
+        <button class="iuri-subtab" data-sub="listino">Gestione listino</button>
       </div>
-      <div id="iuri-list"></div>
+
+      <div class="iuri-subview active" id="iuri-subview-ordini">
+        <div class="iuri-toolbar">
+          <input type="text" class="search-input" id="iuri-search" placeholder="🔍 Cerca per ragione sociale…">
+          <button class="iuri-refresh-btn" id="iuri-refresh">Aggiorna</button>
+        </div>
+        <div id="iuri-list"></div>
+      </div>
+
+      <div class="iuri-subview" id="iuri-subview-listino">
+        <div class="gl-toolbar">
+          <input type="text" class="search-input" id="gl-search" placeholder="🔍 Cerca articolo per nome o codice…">
+          <button class="gl-add-btn" id="gl-add-btn">+ Nuovo articolo</button>
+        </div>
+
+        <div class="gl-edit-card hidden" id="gl-edit-card">
+          <div class="gl-edit-card-title" id="gl-edit-card-title">Nuovo articolo</div>
+          <div class="gl-form-grid">
+            <div class="gl-field">
+              <label>Categoria</label>
+              <select id="gl-f-categoria"></select>
+            </div>
+            <div class="gl-field" id="gl-f-nuova-categoria-wrap" style="display:none;">
+              <label>Nome nuova categoria</label>
+              <input type="text" id="gl-f-nuova-categoria" placeholder="Es. Salumi">
+            </div>
+            <div class="gl-field">
+              <label>Codice</label>
+              <input type="text" id="gl-f-codice">
+            </div>
+            <div class="gl-field">
+              <label>Nome articolo</label>
+              <input type="text" id="gl-f-nome">
+            </div>
+            <div class="gl-field">
+              <label>Prezzo (€)</label>
+              <input type="number" step="0.01" min="0" id="gl-f-prezzo">
+            </div>
+            <div class="gl-field">
+              <label>Unità</label>
+              <div class="gl-unit-toggle">
+                <button type="button" class="gl-unit-opt sel" data-unit="kg" id="gl-unit-kg">kg</button>
+                <button type="button" class="gl-unit-opt" data-unit="pz" id="gl-unit-pz">pz</button>
+              </div>
+            </div>
+            <div class="gl-field">
+              <label>Valido dal</label>
+              <input type="date" id="gl-f-valido-dal">
+            </div>
+            <div class="gl-field">
+              <label>Valido al</label>
+              <input type="date" id="gl-f-valido-al">
+              <label class="gl-noscad"><input type="checkbox" id="gl-f-nessuna-scadenza" checked> Nessuna scadenza</label>
+            </div>
+          </div>
+          <div class="gl-form-actions">
+            <button type="button" class="gl-btn-secondary" id="gl-annulla-btn">Annulla</button>
+            <button type="button" class="gl-btn-primary" id="gl-salva-btn">Salva modifiche</button>
+          </div>
+        </div>
+
+        <div id="listino-tables"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -614,12 +759,13 @@ v4 — Il tool NON calcola più totali: l'ordine trasmette solo articolo + quant
 
 <script>
 // =====================================================================
-// LISTINO BASE — CommService — validità 01/08/2026-30/11/2026
+// LISTINO DI EMERGENZA — usato SOLO se il backend non risponde e non esiste
+// ancora una copia salvata in locale (es. primissimo utilizzo senza rete).
+// La fonte di verità è il tab "Listino" nel foglio Google, gestito da
+// Area CommService → Gestione listino.
 // unit: "kg" (prezzo al kg, quantità decimale) oppure "pz" (pezzo/confezione, quantità intera)
-// Unità assegnata per default in base al nome articolo — da verificare con Iuri
-// sulle voci più ambigue (conserve, sottaceti, patatine surgelate).
 // =====================================================================
-const PRODOTTI = {
+const PRODOTTI_FALLBACK = {
   "Carne Bovina GV e Nazionale": [
     ["001","MEZZENA B.A.",9.80,"kg"],
     ["002","POSTERIORE B.A.",12.30,"kg"],
@@ -778,6 +924,7 @@ const IURI_PIN = "5720";
 
 const LS_CLIENTE = "cs_cliente";
 const LS_ORDINI = "cs_ordini";
+const LS_LISTINO = "cs_listino_cache";
 
 function fmtQty(qty){ return qty + " pz"; }
 
@@ -795,10 +942,76 @@ document.querySelectorAll(".main-tab").forEach(btn => {
   };
 });
 
-// ---------- BUILD CATEGORY TABS + PRODUCT LIST ----------
+// =====================================================================
+// LISTINO — dati dinamici letti dal backend (tab "Listino" nel foglio Google).
+// Sostituisce il vecchio catalogo statico PRODOTTI: qui costruiamo tab/elenco
+// della vista "Nuovo ordine" filtrando solo gli articoli in validità oggi.
+// =====================================================================
 const tabsEl = document.getElementById("tabs");
 const catsEl = document.getElementById("categories");
-const catNames = Object.keys(PRODOTTI);
+const listinoNoteEl = document.getElementById("listino-updated-note");
+
+let LISTINO = [];             // array piatto {id, categoria, codice, nome, prezzo, unita, validoDal, validoAl}
+let listinoUltimaModifica = null;
+let catNames = [];            // categorie correnti in ordine di comparsa
+
+function oggiISO(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+
+function isArticoloValido(art, oggiStr){
+  oggiStr = oggiStr || oggiISO();
+  const dal = art.validoDal ? art.validoDal.slice(0,10) : null;
+  const al = art.validoAl ? art.validoAl.slice(0,10) : null;
+  if(dal && oggiStr < dal) return false;
+  if(al && oggiStr > al) return false;
+  return true;
+}
+
+function statoArticolo(art, oggiStr){
+  oggiStr = oggiStr || oggiISO();
+  const dal = art.validoDal ? art.validoDal.slice(0,10) : null;
+  const al = art.validoAl ? art.validoAl.slice(0,10) : null;
+  if(dal && oggiStr < dal) return "futuro";
+  if(al && oggiStr > al) return "scaduto";
+  return "attivo";
+}
+
+function fmtDataIt(iso){
+  if(!iso) return "";
+  const parti = iso.slice(0,10).split("-");
+  if(parti.length !== 3) return "";
+  return parti[2] + "/" + parti[1] + "/" + parti[0];
+}
+
+function raggruppaPerCategoria(articoli){
+  const gruppi = {};
+  const ordine = [];
+  articoli.forEach(a => {
+    const cat = a.categoria || "Altro";
+    if(!gruppi[cat]){ gruppi[cat] = []; ordine.push(cat); }
+    gruppi[cat].push(a);
+  });
+  return { gruppi, ordine };
+}
+
+// Usato SOLO se il backend non risponde e non esiste ancora nessuna copia
+// salvata in locale: gli articoli del listino di emergenza sono sempre validi.
+function convertiFallback(){
+  const flat = [];
+  Object.keys(PRODOTTI_FALLBACK).forEach(cat => {
+    PRODOTTI_FALLBACK[cat].forEach(([cod, nome, prezzo, unit]) => {
+      flat.push({ id: "fallback_" + cod, categoria: cat, codice: cod, nome: nome, prezzo: prezzo, unita: unit, validoDal: "", validoAl: "" });
+    });
+  });
+  return flat;
+}
+
+function renderListinoUpdatedNote(){
+  if(!listinoNoteEl) return;
+  listinoNoteEl.textContent = listinoUltimaModifica ? ("Listino aggiornato al " + fmtDataIt(listinoUltimaModifica)) : "";
+}
 
 // Il prezzo di listino resta visibile in elenco (di riferimento per il cliente),
 // ma non entra mai nel riepilogo ordine né in un calcolo di totale: l'ordine
@@ -833,33 +1046,82 @@ function buildItemRow(cod, nome, prezzo, unit){
   return row;
 }
 
-catNames.forEach((cat, idx) => {
-  const tab = document.createElement("button");
-  tab.className = "tab" + (idx===0 ? " active" : "");
-  tab.textContent = cat;
-  tab.dataset.cat = cat;
-  tab.onclick = () => switchTab(cat);
-  tabsEl.appendChild(tab);
+function renderCatalogoOrdine(){
+  const oggi = oggiISO();
+  const validi = LISTINO.filter(a => isArticoloValido(a, oggi));
+  const { gruppi, ordine } = raggruppaPerCategoria(validi);
+  catNames = ordine;
 
-  const section = document.createElement("div");
-  section.className = "category" + (idx===0 ? " active" : "");
-  section.dataset.cat = cat;
+  tabsEl.innerHTML = "";
+  catsEl.innerHTML = "";
 
-  const title = document.createElement("div");
-  title.className = "cat-title";
-  title.textContent = cat;
-  section.appendChild(title);
+  catNames.forEach((cat, idx) => {
+    const tab = document.createElement("button");
+    tab.className = "tab" + (idx===0 ? " active" : "");
+    tab.textContent = cat;
+    tab.dataset.cat = cat;
+    tab.onclick = () => switchTab(cat);
+    tabsEl.appendChild(tab);
 
-  PRODOTTI[cat].forEach(([cod, nome, prezzo, unit]) => {
-    section.appendChild(buildItemRow(cod, nome, prezzo, unit));
+    const section = document.createElement("div");
+    section.className = "category" + (idx===0 ? " active" : "");
+    section.dataset.cat = cat;
+
+    const title = document.createElement("div");
+    title.className = "cat-title";
+    title.textContent = cat;
+    section.appendChild(title);
+
+    gruppi[cat].forEach(a => {
+      section.appendChild(buildItemRow(a.codice, a.nome, a.prezzo, a.unita));
+    });
+
+    catsEl.appendChild(section);
   });
 
-  catsEl.appendChild(section);
-});
+  if(typeof searchInput !== "undefined" && searchInput && searchInput.value.trim()) applicaRicerca();
+}
 
 function switchTab(cat){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.cat === cat));
   document.querySelectorAll(".category").forEach(s => s.classList.toggle("active", s.dataset.cat === cat));
+}
+
+async function loadListino(){
+  // 1) mostra subito l'eventuale copia salvata in locale, per partire senza attese.
+  try{
+    const raw = localStorage.getItem(LS_LISTINO);
+    if(raw){
+      const cached = JSON.parse(raw);
+      if(cached && Array.isArray(cached.articoli) && cached.articoli.length){
+        LISTINO = cached.articoli;
+        listinoUltimaModifica = cached.ultimaModifica || null;
+        renderCatalogoOrdine();
+        renderListinoUpdatedNote();
+      }
+    }
+  }catch(e){}
+
+  // 2) aggiorna dal backend condiviso; se non c'è ancora nulla (primissimo avvio
+  // senza rete), usa il listino di emergenza incorporato nel tool.
+  try{
+    const res = await fetch(APPS_SCRIPT_URL + "?action=listino", { method: "GET" });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    LISTINO = data.articoli || [];
+    listinoUltimaModifica = data.ultimaModifica || null;
+    try{ localStorage.setItem(LS_LISTINO, JSON.stringify({ articoli: LISTINO, ultimaModifica: listinoUltimaModifica })); }catch(e){}
+    renderCatalogoOrdine();
+    renderListinoUpdatedNote();
+    if(typeof iuriUnlocked !== "undefined" && iuriUnlocked) renderGestioneListino();
+  }catch(err){
+    console.warn("CommService: impossibile aggiornare il listino dal backend condiviso.", err);
+    if(LISTINO.length === 0){
+      LISTINO = convertiFallback();
+      renderCatalogoOrdine();
+      renderListinoUpdatedNote();
+    }
+  }
 }
 
 // ---------- SEARCH ----------
@@ -867,7 +1129,7 @@ const searchInput = document.getElementById("search-input");
 const searchResults = document.getElementById("search-results");
 const tabsWrap = document.getElementById("tabs-wrap");
 
-searchInput.addEventListener("input", () => {
+function applicaRicerca(){
   const q = searchInput.value.trim().toLowerCase();
   if(!q){
     searchResults.style.display = "none";
@@ -880,19 +1142,22 @@ searchInput.addEventListener("input", () => {
   searchResults.style.display = "block";
   searchResults.innerHTML = "";
 
+  const oggi = oggiISO();
   let found = false;
-  catNames.forEach(cat => {
-    PRODOTTI[cat].forEach(([cod, nome, prezzo, unit]) => {
-      if(nome.toLowerCase().includes(q) || cod.toLowerCase().includes(q)){
-        found = true;
-        searchResults.appendChild(buildItemRow(cod, nome, prezzo, unit));
-      }
-    });
+  LISTINO.filter(a => isArticoloValido(a, oggi)).forEach(a => {
+    if(a.nome.toLowerCase().includes(q) || a.codice.toLowerCase().includes(q)){
+      found = true;
+      searchResults.appendChild(buildItemRow(a.codice, a.nome, a.prezzo, a.unita));
+    }
   });
   if(!found){
     searchResults.innerHTML = '<div class="no-results">Nessun prodotto trovato per "' + searchInput.value + '"</div>';
   }
-});
+}
+
+searchInput.addEventListener("input", applicaRicerca);
+
+loadListino();
 
 // ---------- CART ----------
 function addToCart(cod, nome, qty){
@@ -1157,6 +1422,16 @@ document.getElementById("pin-input").addEventListener("keydown", function(e){
 document.getElementById("iuri-refresh").onclick = loadIuriOrdini;
 document.getElementById("iuri-search").addEventListener("input", renderIuriList);
 
+document.querySelectorAll(".iuri-subtab").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".iuri-subtab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".iuri-subview").forEach(v => v.classList.remove("active"));
+    document.getElementById("iuri-subview-" + btn.dataset.sub).classList.add("active");
+    if(btn.dataset.sub === "listino") renderGestioneListino();
+  };
+});
+
 let iuriOrdiniByKey = {};
 
 async function loadIuriOrdini(){
@@ -1315,6 +1590,205 @@ function reinviaConfermaIuri(key){
   const o = iuriOrdiniByKey[key];
   if(!o) return;
   inviaConfermaWhatsapp_(o);
+}
+
+// ---------- GESTIONE LISTINO ----------
+let glEditingId = null; // null = nuovo articolo, altrimenti id dell'articolo in modifica
+
+const glSearchInput = document.getElementById("gl-search");
+const glTablesEl = document.getElementById("listino-tables");
+const glEditCard = document.getElementById("gl-edit-card");
+const glCategoriaSelect = document.getElementById("gl-f-categoria");
+const glNuovaCategoriaWrap = document.getElementById("gl-f-nuova-categoria-wrap");
+const glNuovaCategoriaInput = document.getElementById("gl-f-nuova-categoria");
+
+glSearchInput.addEventListener("input", renderGestioneListino);
+
+document.getElementById("gl-add-btn").onclick = () => apriFormArticolo(null);
+document.getElementById("gl-annulla-btn").onclick = chiudiFormArticolo;
+document.getElementById("gl-salva-btn").onclick = salvaArticoloForm;
+document.getElementById("gl-unit-kg").onclick = () => selezionaUnita("kg");
+document.getElementById("gl-unit-pz").onclick = () => selezionaUnita("pz");
+
+document.getElementById("gl-f-nessuna-scadenza").addEventListener("change", function(){
+  document.getElementById("gl-f-valido-al").disabled = this.checked;
+  if(this.checked) document.getElementById("gl-f-valido-al").value = "";
+});
+
+glCategoriaSelect.addEventListener("change", function(){
+  glNuovaCategoriaWrap.style.display = (this.value === "__nuova__") ? "block" : "none";
+});
+
+function selezionaUnita(u){
+  document.getElementById("gl-unit-kg").classList.toggle("sel", u === "kg");
+  document.getElementById("gl-unit-pz").classList.toggle("sel", u === "pz");
+}
+
+function popolaCategorieSelect(){
+  const categorie = [...new Set(LISTINO.map(a => a.categoria).filter(Boolean))];
+  glCategoriaSelect.innerHTML = categorie.map(c => `<option value="${c}">${c}</option>`).join("")
+    + '<option value="__nuova__">+ Nuova categoria…</option>';
+}
+
+function apriFormArticolo(articolo){
+  popolaCategorieSelect();
+  glNuovaCategoriaWrap.style.display = "none";
+  glNuovaCategoriaInput.value = "";
+
+  if(articolo){
+    glEditingId = articolo.id;
+    document.getElementById("gl-edit-card-title").textContent = "Modifica articolo — " + articolo.nome;
+    glCategoriaSelect.value = articolo.categoria;
+    document.getElementById("gl-f-codice").value = articolo.codice;
+    document.getElementById("gl-f-nome").value = articolo.nome;
+    document.getElementById("gl-f-prezzo").value = articolo.prezzo;
+    selezionaUnita(articolo.unita || "kg");
+    document.getElementById("gl-f-valido-dal").value = articolo.validoDal ? articolo.validoDal.slice(0,10) : "";
+    const haScadenza = !!articolo.validoAl;
+    document.getElementById("gl-f-nessuna-scadenza").checked = !haScadenza;
+    document.getElementById("gl-f-valido-al").disabled = !haScadenza;
+    document.getElementById("gl-f-valido-al").value = haScadenza ? articolo.validoAl.slice(0,10) : "";
+  } else {
+    glEditingId = null;
+    document.getElementById("gl-edit-card-title").textContent = "Nuovo articolo";
+    document.getElementById("gl-f-codice").value = "";
+    document.getElementById("gl-f-nome").value = "";
+    document.getElementById("gl-f-prezzo").value = "";
+    selezionaUnita("kg");
+    document.getElementById("gl-f-valido-dal").value = oggiISO();
+    document.getElementById("gl-f-nessuna-scadenza").checked = true;
+    document.getElementById("gl-f-valido-al").disabled = true;
+    document.getElementById("gl-f-valido-al").value = "";
+  }
+
+  glEditCard.classList.remove("hidden");
+  glEditCard.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function chiudiFormArticolo(){
+  glEditCard.classList.add("hidden");
+  glEditingId = null;
+}
+
+async function salvaArticoloForm(){
+  let categoria = glCategoriaSelect.value;
+  if(categoria === "__nuova__"){
+    categoria = glNuovaCategoriaInput.value.trim();
+    if(!categoria){
+      alert("Inserisci il nome della nuova categoria.");
+      return;
+    }
+  }
+  const codice = document.getElementById("gl-f-codice").value.trim();
+  const nome = document.getElementById("gl-f-nome").value.trim();
+  const prezzo = parseFloat(document.getElementById("gl-f-prezzo").value);
+  const unita = document.querySelector(".gl-unit-opt.sel").dataset.unit;
+  const validoDal = document.getElementById("gl-f-valido-dal").value;
+  const nessunaScadenza = document.getElementById("gl-f-nessuna-scadenza").checked;
+  const validoAl = nessunaScadenza ? "" : document.getElementById("gl-f-valido-al").value;
+
+  if(!codice || !nome || isNaN(prezzo)){
+    alert("Compila almeno codice, nome e prezzo prima di salvare.");
+    return;
+  }
+
+  const salvaBtn = document.getElementById("gl-salva-btn");
+  salvaBtn.disabled = true;
+  salvaBtn.textContent = "Salvataggio…";
+
+  const body = { action: "salvaArticolo", categoria: categoria, codice: codice, nome: nome, prezzo: prezzo, unita: unita, validoDal: validoDal, validoAl: validoAl };
+  if(glEditingId) body.id = glEditingId;
+
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(body)
+    });
+    showToast(glEditingId ? "Articolo aggiornato" : "Articolo aggiunto");
+    chiudiFormArticolo();
+    await loadListino();
+    renderGestioneListino();
+  }catch(err){
+    console.warn("CommService: impossibile salvare l'articolo.", err);
+    alert("Impossibile salvare l'articolo. Controlla la connessione e riprova.");
+  } finally {
+    salvaBtn.disabled = false;
+    salvaBtn.textContent = "Salva modifiche";
+  }
+}
+
+async function eliminaArticoloListino(id, nome){
+  if(!confirm('Eliminare "' + nome + '" dal listino?')) return;
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "eliminaArticolo", id: id })
+    });
+    showToast("Articolo eliminato");
+    await loadListino();
+    renderGestioneListino();
+  }catch(err){
+    console.warn("CommService: impossibile eliminare l'articolo.", err);
+    alert("Impossibile eliminare l'articolo. Controlla la connessione e riprova.");
+  }
+}
+
+function renderGestioneListino(){
+  const q = (glSearchInput.value || "").trim().toLowerCase();
+  const oggi = oggiISO();
+  const filtrati = LISTINO.filter(a => !q || a.nome.toLowerCase().includes(q) || a.codice.toLowerCase().includes(q));
+  const { gruppi, ordine } = raggruppaPerCategoria(filtrati);
+
+  if(ordine.length === 0){
+    glTablesEl.innerHTML = '<div class="gl-empty">' + (LISTINO.length === 0 ? "Nessun articolo nel listino." : ('Nessun articolo trovato per "' + glSearchInput.value + '".')) + '</div>';
+    return;
+  }
+
+  glTablesEl.innerHTML = ordine.map(cat => {
+    const righe = gruppi[cat].map(a => {
+      const stato = statoArticolo(a, oggi);
+      const badgeTxt = stato === "attivo" ? "attivo" : (stato === "futuro" ? "non ancora attivo" : "scaduto");
+      const validitaTxt = a.validoDal
+        ? (a.validoAl ? ("dal " + fmtDataIt(a.validoDal) + " al " + fmtDataIt(a.validoAl)) : ("dal " + fmtDataIt(a.validoDal)))
+        : (a.validoAl ? ("fino al " + fmtDataIt(a.validoAl)) : "sempre");
+      return `
+        <tr>
+          <td><span class="gl-cod">${a.codice}</span><span class="gl-nome">${a.nome}</span></td>
+          <td class="gl-prezzo">€ ${Number(a.prezzo).toFixed(2).replace(".", ",")} / ${a.unita}</td>
+          <td class="gl-validita">${validitaTxt} <span class="gl-badge ${stato}">${badgeTxt}</span></td>
+          <td class="gl-row-actions">
+            <button type="button" class="gl-icon-btn" data-action="modifica" data-id="${a.id}">Modifica</button>
+            <button type="button" class="gl-icon-btn danger" data-action="elimina" data-id="${a.id}">Elimina</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div class="gl-cat-block">
+        <div class="gl-cat-title">${cat}</div>
+        <table class="gl-table">
+          <thead><tr><th>Articolo</th><th>Prezzo</th><th>Validità</th><th></th></tr></thead>
+          <tbody>${righe}</tbody>
+        </table>
+      </div>
+    `;
+  }).join("");
+
+  glTablesEl.querySelectorAll('[data-action="modifica"]').forEach(btn => {
+    btn.onclick = () => {
+      const art = LISTINO.find(a => a.id === btn.dataset.id);
+      if(art) apriFormArticolo(art);
+    };
+  });
+  glTablesEl.querySelectorAll('[data-action="elimina"]').forEach(btn => {
+    btn.onclick = () => {
+      const art = LISTINO.find(a => a.id === btn.dataset.id);
+      eliminaArticoloListino(btn.dataset.id, art ? art.nome : "");
+    };
+  });
 }
 </script>
 
