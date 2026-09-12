@@ -18,8 +18,7 @@
   tramite un endpoint Apps Script (APPS_SCRIPT_URL) — vedi doPost/doGet nel foglio
   "CommService Backend". Se il salvataggio sul backend fallisce (rete assente,
   endpoint cambiato) l'ordine parte comunque su WhatsApp, non è bloccante.
-  ATTENZIONE: APPS_SCRIPT_URL punta al foglio di TEST creato in fase di prova —
-  sostituirlo con l'URL del deployment definitivo prima dell'uso reale con i clienti.
+  APPS_SCRIPT_URL punta al deployment definitivo su account zerocomplicazioni2026@gmail.com (spostato il 12/09/2026).
 
   Area CommService (tab "Area CommService"): mostra lo storico consolidato di tutti
   i clienti, letto dal backend condiviso. Protetta da un PIN a 4 cifre (IURI_PIN) —
@@ -917,7 +916,7 @@ const WHATSAPP_NUMERO = "393357743889"; // Iuri — CommService
 
 // Backend condiviso (foglio Google + Apps Script) — vedi commento in testa al file.
 // TODO: sostituire con l'URL del deployment definitivo prima dell'uso reale.
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztvxoHXBKuWY5EGDt_Qkoynfsx3FVzUmlhixr_4Cib46AhxoV45fShraMFpzTujsWu/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6pNqKuxcGooorc6q-tLuMZAqw0SIM-D9Awsyu6TGYF8b1Kj_ppEI_ZC9FJ3sX4JHL/exec";
 
 // PIN a 4 cifre per l'Area Iuri (protezione lato client, non sicurezza vera — vedi commento in testa).
 const IURI_PIN = "5720";
