@@ -922,6 +922,8 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztvxoHXBKuWY5E
 // PIN a 4 cifre per l'Area Iuri (protezione lato client, non sicurezza vera — vedi commento in testa).
 const IURI_PIN = "5720";
 
+  const ADMIN_TOKEN = "RIYIBQOn0UOujwveXeOieh7mnK0jFLKTqaKtSTe7";
+
 const LS_CLIENTE = "cs_cliente";
 const LS_ORDINI = "cs_ordini";
 const LS_LISTINO = "cs_listino_cache";
@@ -1438,7 +1440,7 @@ async function loadIuriOrdini(){
   const listEl = document.getElementById("iuri-list");
   listEl.innerHTML = '<div class="iuri-state">Caricamento storico…</div>';
   try{
-    const res = await fetch(APPS_SCRIPT_URL, { method: "GET" });
+    const res = await fetch(APPS_SCRIPT_URL + "?token=" + encodeURIComponent(ADMIN_TOKEN), { method: "GET" });
     if(!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     iuriOrdiniByKey = {};
@@ -1572,7 +1574,7 @@ async function confermaOrdineIuri(key){
     await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "conferma", id: o.id, righe: righeAggiornate })
+      body: JSON.stringify({ action: "conferma", id: o.id, righe: righeAggiornate, token: ADMIN_TOKEN })
     });
   }catch(err){
     console.warn("CommService: impossibile salvare la conferma sul backend condiviso.", err);
@@ -1696,7 +1698,7 @@ async function salvaArticoloForm(){
   salvaBtn.disabled = true;
   salvaBtn.textContent = "Salvataggio…";
 
-  const body = { action: "salvaArticolo", categoria: categoria, codice: codice, nome: nome, prezzo: prezzo, unita: unita, validoDal: validoDal, validoAl: validoAl };
+  const body = { action: "salvaArticolo", categoria: categoria, codice: codice, nome: nome, prezzo: prezzo, unita: unita, validoDal: validoDal, validoAl: validoAl, token: ADMIN_TOKEN };
   if(glEditingId) body.id = glEditingId;
 
   try{
@@ -1724,7 +1726,7 @@ async function eliminaArticoloListino(id, nome){
     await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "eliminaArticolo", id: id })
+      body: JSON.stringify({ action: "eliminaArticolo", id: id, token: ADMIN_TOKEN })
     });
     showToast("Articolo eliminato");
     await loadListino();
