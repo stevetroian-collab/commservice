@@ -18,7 +18,8 @@
   tramite un endpoint Apps Script (APPS_SCRIPT_URL) — vedi doPost/doGet nel foglio
   "CommService Backend". Se il salvataggio sul backend fallisce (rete assente,
   endpoint cambiato) l'ordine parte comunque su WhatsApp, non è bloccante.
-  APPS_SCRIPT_URL punta al deployment definitivo su account zerocomplicazioni2026@gmail.com (spostato il 12/09/2026).
+  ATTENZIONE: APPS_SCRIPT_URL punta al foglio di TEST creato in fase di prova —
+  sostituirlo con l'URL del deployment definitivo prima dell'uso reale con i clienti.
 
   Area CommService (tab "Area CommService"): mostra lo storico consolidato di tutti
   i clienti, letto dal backend condiviso. Protetta da un PIN a 4 cifre (IURI_PIN) —
@@ -916,12 +917,19 @@ const WHATSAPP_NUMERO = "393357743889"; // Iuri — CommService
 
 // Backend condiviso (foglio Google + Apps Script) — vedi commento in testa al file.
 // TODO: sostituire con l'URL del deployment definitivo prima dell'uso reale.
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6pNqKuxcGooorc6q-tLuMZAqw0SIM-D9Awsyu6TGYF8b1Kj_ppEI_ZC9FJ3sX4JHL/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQgsYn2xZiWHyIdSTQU1DecaYX6uF5EhhmbNBq2iqHQ4U8umjWpDq3fbxRzqvfjVQfiQ/exec";
 
 // PIN a 4 cifre per l'Area Iuri (protezione lato client, non sicurezza vera — vedi commento in testa).
 const IURI_PIN = "5720";
 
-  const ADMIN_TOKEN = "RIYIBQOn0UOujwveXeOieh7mnK0jFLKTqaKtSTe7";
+// Token richiesto dal backend per le operazioni admin (storico ordini, conferma,
+// gestione listino) — vedi Codice-CommService-corretto.gs. Deve combaciare
+// ESATTAMENTE con il valore impostato lì tramite impostaToken_(). Non è una
+// protezione più forte del PIN qui sopra (anche questo file è pubblico e
+// leggibile da chiunque via "visualizza sorgente"): serve a evitare che lo
+// storico ordini sia leggibile da chi conosce solo l'URL del backend, senza
+// nemmeno guardare questa pagina.
+const ADMIN_TOKEN = "RIYIBQOn0UOujwveXeOieh7mnK0jFLKTqaKtSTe7";
 
 const LS_CLIENTE = "cs_cliente";
 const LS_ORDINI = "cs_ordini";
